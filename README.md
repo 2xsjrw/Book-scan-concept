@@ -1,24 +1,55 @@
 # BookScanner Pipeline
 
-Python tool that identifies books from cover photos using 
-free APIs (OCR.space + Open Library).
+Python book scanner with three modes: cover lookup, page-by-page, 
+and batch processing. Built entirely on Android with Pydroid 3.
 
-## What It Does
-- Takes a photo of any book cover
-- Extracts text via OCR.space free API
-- Identifies the book via Open Library API
-- Returns title, author, ISBN, and link
+## Tested On
+- Device: [Your phone model]
+- OS: Android [version]
+- Python: 3.x via Pydroid 3
 
-## Why I Built This
-Portfolio project demonstrating API integration, error handling,
-and working with constrained resources (built entirely on Android).
+## Modes
 
-## Requirements
-- Python 3.x
+### Mode 1: Cover Scan + Online Lookup
+- Takes photo of book cover
+- OCR extracts text via OCR.space API
+- Looks up book via Open Library API
+- Reads results with Android TTS
+
+**Test Result:** [Worked / Partial / Failed]
+- Book tested: [Title]
+- OCR accuracy: [Good / Fair / Poor]
+- Book found online? [Yes / No]
+
+### Mode 2: Page-by-Page Scanner
+- Enter path for each page photo
+- OCR extracts text
+- Saves to `manual_book.txt`
+- Optional TTS after each page
+
+**Test Result:** [Worked / Partial / Failed]
+- Pages scanned: [Number]
+- Total words: [Number]
+- TTS worked? [Yes / No]
+
+### Mode 3: Batch Folder Scanner
+- Put all page photos in one folder
+- Processes all images automatically
+- Combines into `manual_book.txt`
+
+**Test Result:** [Worked / Partial / Failed]
+- Images processed: [Number]
+- Failures: [Number and why]
+
+## Known Issues
+- [List anything that didn't work perfectly]
+
+## Dependencies
 - requests
 - Pillow
 
-## Install
-```bash
-pip install requests Pillow
+Install: `pip install requests Pillow`
+
+## Future Improvements
+- [What you plan to add next]
 
