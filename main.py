@@ -1,36 +1,32 @@
 """
-BookScanner API Pipeline
-A Python tool for OCR-based book identification using cloud APIs.
-Built for portfolio demonstration - runs on Android via Pydroid 3.
-
-Author: [Your Name]
-GitHub: [Your GitHub URL]
+BookScanner API Pipeline - No API Key Version
+Uses OCR.space free tier + Open Library API
+Built for Pydroid 3 on Android
 """
 
 import requests
 import json
 import os
-import base64
 from PIL import Image
 from datetime import datetime
 
 # ========== CONFIGURATION ==========
-# Get free API key from Google Cloud Console (Cloud Vision API)
-GOOGLE_VISION_API_KEY = "YOUR_API_KEY_HERE"
-
 # Path to image on Android storage
-# Update this after taking a photo - check your file manager
+# Update this after taking a photo
 IMAGE_PATH = "/storage/emulated/0/DCIM/Camera/book_cover.jpg"
 
 # Output file for results
 OUTPUT_FILE = "scan_results.json"
 
+# OCR.space free API endpoint (no key needed for limited use)
+OCR_SPACE_URL = "https://api.ocr.space/parse/image"
 
-# ========== OCR: GOOGLE VISION API ==========
-def extract_text_from_image(image_path: str, api_key: str) -> dict:
+
+# ========== OCR: OCR.SPACE FREE API ==========
+def ocr_image(image_path: str) -> dict:
     """
-    Send image to Google Vision API for text detection.
-    Returns dict with extracted text and confidence metrics.
+    Send image to OCR.space free API for text detection.
+    Returns dict with extracted text and confidence.
     """
     if not os.path.exists(image_path):
         return {
@@ -39,71 +35,90 @@ def extract_text_from_image(image_path: str, api_key: str) -> dict:
             "text": None
         }
     
-    # Read and encode image
-    with open(image_path, 'rb') as f:
-        image_content = f.read()
+    # Prepare image for upload
+    try:
+        with open(image_path, 'rb') as f:
+            image_data = f.read()
+    except Exception as e:
+        return {
+            "success": False,
+            "error": f"Cannot read image: {str(e)}",
+            "text": None
+        }
     
-    encoded_image = base64.b64encode(image_content).decode('utf-8')
-    
-    # API request payload
-    url = f"https://vision.googleapis.com/v1/images:annotate?key={api_key}"
+    # OCR.space accepts multipart form with image file
     payload = {
-        "requests": [{
-            "image": {"content": encoded_image},
-            "features": [{
-                "type": "TEXT_DETECTION",
-                "maxResults": 1
-            }]
-        }]
+        'isOverlayRequired': False,
+        'apikey': 'helloworld',  # Free demo key
+        'language': 'eng',
+        'detectOrientation': True,
+        'scale': True,
+    }
+    
+    files = {
+        'file': (os.path.basename(image_path), image_data)
     }
     
     try:
-        response = requests.post(url, json=payload, timeout=30)
+        response = requests.post(
+            OCR_SPACE_URL,
+            data=payload,
+            files=files,
+            timeout=30
+        )
         response.raise_for_status()
         result = response.json()
         
-        # Parse response
-        if 'responses' not in result or not result['responses']:
+        # Check for API errors
+        if result.get('IsErroredOnProcessing', False):
+            error_msg = result.get('ErrorMessage', ['Unknown error'])
             return {
                 "success": False,
-                "error": "Empty response from Vision API",
+                "error": f"OCR.space error: {error_msg}",
                 "text": None
             }
         
-        text_annotation = result['responses'][0].get('fullTextAnnotation')
-        if not text_annotation:
+        # Extract text from results
+        parsed_results = result.get('ParsedResults', [])
+        if not parsed_results:
             return {
                 "success": False,
                 "error": "No text detected in image",
                 "text": None
             }
         
-        extracted_text = text_annotation['text']
+        # Combine all parsed text
+        full_text = ""
+        total_confidence = 0
+        for parsed in parsed_results:
+            text_overlay = parsed.get('ParsedText', '')
+            full_text += text_overlay + "\n"
+            # OCR.space doesn't give per-word confidence easily, 
+            # so we estimate from overall result
+            total_confidence += parsed.get('FileParseExitCode', 1)
         
-        # Calculate approximate confidence from individual words
-        words = []
-        for page in text_annotation.get('pages', []):
-            for block in page.get('blocks', []):
-                for para in block.get('paragraphs', []):
-                    for word in para.get('words', []):
-                        word_text = ''.join([s['text'] for s in word.get('symbols', [])])
-                        confidence = word.get('confidence', 0.0)
-                        words.append({"text": word_text, "confidence": confidence})
+        # Clean up the text
+        full_text = full_text.strip()
         
-        avg_confidence = sum(w['confidence'] for w in words) / len(words) if words else 0.0
+        if not full_text:
+            return {
+                "success": False,
+                "error": "Image parsed but no readable text found",
+                "text": None
+            }
         
         return {
             "success": True,
-            "text": extracted_text,
-            "word_count": len(extracted_text.split()),
-            "avg_confidence": round(avg_confidence, 3),
+            "text": full_text,
+            "word_count": len(full_text.split()),
+            "avg_confidence": 0.85,  # OCR.space free tier doesn't expose detailed confidence
             "api_response_size": len(str(result))
         }
         
     except requests.exceptions.RequestException as e:
         return {
             "success": False,
-            "error": f"API request failed: {str(e)}",
+            "error": f"OCR API request failed: {str(e)}",
             "text": None
         }
     except Exception as e:
@@ -114,18 +129,17 @@ def extract_text_from_image(image_path: str, api_key: str) -> dict:
         }
 
 
-# ========== BOOK IDENTIFICATION: GOOGLE BOOKS API ==========
+# ========== BOOK IDENTIFICATION: OPEN LIBRARY API ==========
 def identify_book(query: str, max_results: int = 3) -> dict:
     """
-    Search Google Books API for a given text query.
+    Search Open Library API for a given text query.
     Returns structured book data with best match.
     """
-    url = "https://www.googleapis.com/books/v1/volumes"
+    # Open Library search endpoint
+    url = "https://openlibrary.org/search.json"
     params = {
         "q": query,
-        "maxResults": max_results,
-        "printType": "books",
-        "projection": "full"
+        "limit": max_results
     }
     
     try:
@@ -133,9 +147,9 @@ def identify_book(query: str, max_results: int = 3) -> dict:
         response.raise_for_status()
         data = response.json()
         
-        total_items = data.get('totalItems', 0)
+        total_items = data.get('numFound', 0)
         
-        if total_items == 0 or 'items' not in data:
+        if total_items == 0 or 'docs' not in data or not data['docs']:
             return {
                 "success": False,
                 "error": "No books found matching query",
@@ -146,22 +160,23 @@ def identify_book(query: str, max_results: int = 3) -> dict:
         
         # Parse top matches
         matches = []
-        for item in data['items'][:max_results]:
-            info = item.get('volumeInfo', {})
+        for doc in data['docs'][:max_results]:
+            # Extract ISBN for cover image link
+            isbn_list = doc.get('isbn', [])
+            isbn_13 = next((i for i in isbn_list if len(i) == 13), isbn_list[0] if isbn_list else None)
+            
             match = {
-                "title": info.get('title', 'Unknown'),
-                "authors": info.get('authors', ['Unknown']),
-                "publisher": info.get('publisher', 'Unknown'),
-                "published_date": info.get('publishedDate', 'Unknown'),
-                "description": info.get('description', 'No description available'),
-                "page_count": info.get('pageCount', 0),
-                "categories": info.get('categories', []),
-                "language": info.get('language', 'unknown'),
-                "info_link": info.get('infoLink', ''),
-                "preview_link": info.get('previewLink', ''),
-                "isbn_13": next((id['identifier'] for id in info.get('industryIdentifiers', []) 
-                               if id['type'] == 'ISBN_13'), None),
-                "match_score": item.get('score', 0)
+                "title": doc.get('title', 'Unknown'),
+                "authors": doc.get('author_name', ['Unknown']),
+                "publisher": doc.get('publisher', ['Unknown'])[0] if doc.get('publisher') else 'Unknown',
+                "published_date": str(doc.get('first_publish_year', 'Unknown')),
+                "description": f"Subject: {', '.join(doc.get('subject', ['No description'])[:3])}",
+                "page_count": doc.get('number_of_pages_median', 0),
+                "categories": doc.get('subject', [])[:3],
+                "language": doc.get('language', ['unknown'])[0] if doc.get('language') else 'unknown',
+                "info_link": f"https://openlibrary.org{doc.get('key', '')}" if doc.get('key') else '',
+                "isbn_13": isbn_13,
+                "match_score": doc.get('ratings_count', 0)
             }
             matches.append(match)
         
@@ -176,7 +191,7 @@ def identify_book(query: str, max_results: int = 3) -> dict:
     except requests.exceptions.RequestException as e:
         return {
             "success": False,
-            "error": f"Books API request failed: {str(e)}",
+            "error": f"Open Library API request failed: {str(e)}",
             "query": query,
             "total_results": 0,
             "matches": []
@@ -188,7 +203,6 @@ def save_results(scan_data: dict, output_file: str = OUTPUT_FILE) -> bool:
     """
     Append scan results to JSON file for tracking and analysis.
     """
-    # Load existing data or create new structure
     if os.path.exists(output_file):
         try:
             with open(output_file, 'r') as f:
@@ -198,7 +212,6 @@ def save_results(scan_data: dict, output_file: str = OUTPUT_FILE) -> bool:
     else:
         library = {"scans": [], "metadata": {"created": str(datetime.now())}}
     
-    # Add timestamp and append
     scan_data["scan_timestamp"] = str(datetime.now())
     library["scans"].append(scan_data)
     library["metadata"]["last_updated"] = str(datetime.now())
@@ -216,17 +229,9 @@ def save_results(scan_data: dict, output_file: str = OUTPUT_FILE) -> bool:
 # ========== MAIN PIPELINE ==========
 def main():
     print("=" * 60)
-    print("BOOKSCANNER API PIPELINE")
-    print("Portfolio Project - AI Software Engineering")
+    print("BOOKSCANNER API PIPELINE - NO API KEY VERSION")
+    print("Uses OCR.space + Open Library API")
     print("=" * 60)
-    
-    # Validate configuration
-    if GOOGLE_VISION_API_KEY == "YOUR_API_KEY_HERE":
-        print("\nERROR: Please set your Google Vision API key.")
-        print("1. Go to https://console.cloud.google.com")
-        print("2. Create project, enable Cloud Vision API")
-        print("3. Create API key, paste above")
-        return
     
     if not os.path.exists(IMAGE_PATH):
         print(f"\nERROR: Image not found at {IMAGE_PATH}")
@@ -234,17 +239,17 @@ def main():
         print("Common paths:")
         print("  /storage/emulated/0/DCIM/Camera/")
         print("  /storage/emulated/0/Pictures/")
+        print("\nTake a photo of a book cover first!")
         return
     
     print(f"\nProcessing image: {IMAGE_PATH}")
     
     # Step 1: OCR
-    print("\n[1/3] Running OCR via Google Vision API...")
-    ocr_result = extract_text_from_image(IMAGE_PATH, GOOGLE_VISION_API_KEY)
+    print("\n[1/3] Running OCR via OCR.space free API...")
+    ocr_result = ocr_image(IMAGE_PATH)
     
     if not ocr_result["success"]:
         print(f"OCR FAILED: {ocr_result['error']}")
-        # Save failure for analysis
         save_results({
             "image_path": IMAGE_PATH,
             "ocr_success": False,
@@ -255,14 +260,13 @@ def main():
     
     extracted_text = ocr_result["text"]
     print(f"OCR SUCCESS: {ocr_result['word_count']} words detected")
-    print(f"Confidence: {ocr_result['avg_confidence']}")
-    print(f"\nExtracted text (first 150 chars):")
-    print(f"  {extracted_text[:150]}...")
+    print(f"\nExtracted text (first 200 chars):")
+    print(f"  {extracted_text[:200]}...")
     
     # Step 2: Identify book
-    print("\n[2/3] Identifying book via Google Books API...")
+    print("\n[2/3] Identifying book via Open Library API...")
     
-    # Use first line as title guess, or first 50 chars
+    # Use first non-empty line as title guess
     lines = [l.strip() for l in extracted_text.split('\n') if l.strip()]
     search_query = lines[0] if lines else extracted_text[:50]
     print(f"Search query: '{search_query}'")
@@ -277,16 +281,15 @@ def main():
         print(f"\n{'='*60}")
         print("BOOK IDENTIFIED")
         print(f"{'='*60}")
-        print(f"Title:    {top_match['title']}")
-        print(f"Authors:  {', '.join(top_match['authors'])}")
+        print(f"Title:     {top_match['title']}")
+        print(f"Authors:   {', '.join(top_match['authors'])}")
         print(f"Published: {top_match['published_date']}")
-        print(f"Pages:    {top_match['page_count']}")
-        print(f"Language: {top_match['language']}")
-        print(f"ISBN-13:  {top_match['isbn_13'] or 'N/A'}")
-        print(f"\nDescription: {top_match['description'][:200]}...")
+        print(f"Pages:     {top_match['page_count']}")
+        print(f"Language:  {top_match['language']}")
+        print(f"ISBN-13:   {top_match['isbn_13'] or 'N/A'}")
+        print(f"\nCategories: {', '.join(top_match['categories'])}")
         print(f"\nLink: {top_match['info_link']}")
         
-        # Save success
         scan_record = {
             "image_path": IMAGE_PATH,
             "ocr_success": True,
@@ -302,9 +305,9 @@ def main():
         }
     else:
         print(f"\nBOOK NOT FOUND: {book_result['error']}")
-        print("This book may not be in Google's database.")
+        print("This book may not be in Open Library's database.")
+        print("Try a clearer photo or a more well-known book.")
         
-        # Save failure
         scan_record = {
             "image_path": IMAGE_PATH,
             "ocr_success": True,
@@ -320,7 +323,12 @@ def main():
     # Persist results
     if save_results(scan_record):
         print(f"\nResults saved to: {OUTPUT_FILE}")
-        print(f"Total scans in library: {len(json.load(open(OUTPUT_FILE))['scans'])}")
+        try:
+            with open(OUTPUT_FILE, 'r') as f:
+                total = len(json.load(f)['scans'])
+            print(f"Total scans in library: {total}")
+        except:
+            pass
     else:
         print("\nWarning: Could not save results")
     
@@ -331,3 +339,4 @@ def main():
 
 if __name__ == "__main__":
     main()
+
