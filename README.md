@@ -1,22 +1,24 @@
-# Book Scanner App Concept
+# BookScanner Pipeline
 
-Built entirely on Android using Pydroid 3.
+Python tool that identifies books from cover photos using 
+free APIs (OCR.space + Open Library).
 
-## Features
-- Image capture and cover recognition
-- OCR text extraction from scanned pages
-- Text-to-speech with male/female voice selection
-- Online book metadata lookup
+## What It Does
+- Takes a photo of any book cover
+- Extracts text via OCR.space free API
+- Identifies the book via Open Library API
+- Returns title, author, ISBN, and link
 
-## What This Demonstrates
-- API integration (image recognition, book databases)
-- Image processing and OCR handling
-- UI design for mobile constraints
-- Python scripting in resource-limited environments
+## Why I Built This
+Portfolio project demonstrating API integration, error handling,
+and working with constrained resources (built entirely on Android).
 
-## Status
-In development — core modules being built and tested on mobile.
+## Requirements
+- Python 3.x
+- requests
+- Pillow
 
-## About the Developer
-AI Software Engineering student at Maestro University (A in Python, A in CS). Former Quality Control Specialist for mass book digitization at R.R. Donnelley. Working entirely from mobile.
+## Install
+```bash
+pip install requests Pillow
 
