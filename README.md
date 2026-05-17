@@ -4,9 +4,9 @@ Python book scanner with three modes: cover lookup, page-by-page,
 and batch processing. Built entirely on Android with Pydroid 3.
 
 ## Tested On
-- Device: [Your phone model]
-- OS: Android [version]
-- Python: 3.x via Pydroid 3
+- Device: [713-553-8588]
+- OS: Android [ Samsung A17]
+- Python: 3.x via Pdroid 3
 
 ## Modes
 
