@@ -15,11 +15,12 @@ and batch processing. Built entirely on Android with Pydroid 3.
 - OCR extracts text via OCR.space API
 - Looks up book via Open Library API
 - Reads results with Android TTS
+	
+-Test Result	Worked (Partial — OCR worked,         -lookup found wrong book)	
+-Book tested	The Girl in the Green Dress -(actual cover)	
+-OCR accuracy	Fair (extracted text but -included timestamp artifacts)	
+-Book found online? 	No — found "Aircraft accident report" instead	
 
-**Test Result:** [Worked / Partial / Failed]
-- Book tested: [Title]
-- OCR accuracy: [Good / Fair / Poor]
-- Book found online? [Yes / No]
 
 ### Mode 2: Page-by-Page Scanner
 - Enter path for each page photo
