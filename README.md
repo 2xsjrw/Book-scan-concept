@@ -51,5 +51,10 @@ and batch processing. Built entirely on Android with Pydroid 3.
 Install: `pip install requests Pillow`
 
 ## Future Improvements
-- [What you plan to add next]
+- Phase	Goal	Timeline	
+1. Polish	Fix bugs, clean code, complete documentation	Now	
+2. Web Backend	FastAPI service, deployed to cloud	3–6 months	
+3. Web Frontend	Browser-based UI, camera access	6–9 months	
+4. Native App	Flutter/React Native, offline OCR	1–2 years	
+
 
