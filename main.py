@@ -17,7 +17,7 @@ from PIL import Image
 from datetime import datetime
 
 # ========== CONFIGURATION ==========
-# Default paths - update these for 
+# Default paths - update these
 COVER_IMAGE = "/storage/emulated/0/DCIM/Camera/YOUR-PHOTO-NAME.jpg"
 PAGES_FOLDER = "/storage/emulated/0/DCIM/Camera/book_pages/"
 OUTPUT_FILE = "scan_results.json"
